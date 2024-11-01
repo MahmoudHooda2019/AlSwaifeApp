@@ -151,17 +151,6 @@ public class Utils {
         return textField;
     }
 
-    /*
-    public static double parseDouble(Component component, String text) {
-        try {
-            return Double.parseDouble(text);
-        } catch (NumberFormatException e) {
-            showError(component, "Please enter valid numerical values.");
-            return -1;
-        }
-    }
-    */
-
     public static void showError(Component component, String message) {
         JOptionPane.showMessageDialog(component, message, "Input Error", JOptionPane.ERROR_MESSAGE);
     }
