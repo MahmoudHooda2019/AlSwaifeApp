@@ -1,4 +1,4 @@
-package me.aemo.addons;
+package me.aemo.addons.data;
 
 // Class to represent a product entry
 public class ProductEntry {

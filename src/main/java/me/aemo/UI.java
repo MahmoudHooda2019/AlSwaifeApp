@@ -1,7 +1,13 @@
 package me.aemo;
 
+
 import com.formdev.flatlaf.FlatLightLaf;
-import me.aemo.addons.*;
+import me.aemo.addons.data.Item;
+import me.aemo.addons.data.ProductEntry;
+import me.aemo.addons.menubar.ToolBar;
+import me.aemo.addons.product.ProductsUtils;
+import me.aemo.addons.utils.Utils;
+
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -14,7 +20,6 @@ import java.awt.Color;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static me.aemo.addons.Utils.showError;
+import static me.aemo.addons.utils.Utils.showError;
 
 public class UI extends JFrame {
     private JComboBox<String> itemComboBox;
@@ -43,7 +48,20 @@ public class UI extends JFrame {
         Container contentPane = getContentPane();
         contentPane.setLayout(new BorderLayout());
 
-        ToolBar toolBar = new ToolBar(this);
+        ToolBar toolBar = new ToolBar(
+                this,
+                language -> JOptionPane.showMessageDialog(null, "Language set to " + language.name() + "."),
+                theme -> {
+                    try {
+                        Utils.changeUITheme(UI.this, theme);
+                    } catch (UnsupportedLookAndFeelException | ClassNotFoundException | InstantiationException |
+                             IllegalAccessException e) {
+                        showError(this, "Change Theme UI Error: " + e.getMessage());
+                    }
+                },
+                website -> Utils.openHelpWebsite(UI.this, website),
+                () -> Utils.showFontSizeDialog(UI.this)
+        );
         toolBar.setBackground(Color.GRAY);
         contentPane.add(toolBar, BorderLayout.NORTH);
 
@@ -55,12 +73,12 @@ public class UI extends JFrame {
         productEntries = new ArrayList<>();
         try {
             productsUtils = new ProductsUtils();
-        } catch (URISyntaxException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
         // Initialize the table model
         String[] columnNames = {"الصنف", "العدد", "الطول", "الارتفاع", "المسطح", "سعر المتر", "الاجمالي"};
-        tableModel = new DefaultTableModel(columnNames, 0); // 0 rows at initialization
+        tableModel = new DefaultTableModel(columnNames, 0);
 
         initializeFields();
         initializeComboBox();
@@ -68,9 +86,7 @@ public class UI extends JFrame {
         addComponents(gbc, mainPanel);
         setupListeners();
 
-
         itemComboBox.setSelectedIndex(0);
-
         contentPane.add(mainPanel, BorderLayout.CENTER);
 
         Utils.loadIcon(this, "logo.jpg");
@@ -246,8 +262,8 @@ public class UI extends JFrame {
         try {
             String selectedName = (String) itemComboBox.getSelectedItem();
             double quantity = Double.parseDouble(quantityField.getText());
-            double length = parseLength(lengthField.getText(), (String) lengthUnitComboBox.getSelectedItem());
-            double height = parseHeight(heightField.getText(), (String) heightUnitComboBox.getSelectedItem());
+            double length = parseLength(lengthField.getText(), (String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem()));
+            double height = parseHeight(heightField.getText(), (String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem()));
             double surface = quantity * length * height;
             double price = Double.parseDouble(priceField.getText());
             double total = quantity * price;
@@ -313,9 +329,7 @@ public class UI extends JFrame {
         editButton.addActionListener(e -> editSelectedProduct(table));
         removeSelectedButton.addActionListener(e -> removeSelectedProduct(table));
         removeAllButton.addActionListener(e -> removeAllProducts());
-        okButton.addActionListener(e -> {
-            ((JDialog) SwingUtilities.getAncestorOfClass(JDialog.class, okButton)).dispose();
-        });
+        okButton.addActionListener(e -> ((JDialog) SwingUtilities.getAncestorOfClass(JDialog.class, okButton)).dispose());
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(editButton);
@@ -329,92 +343,137 @@ public class UI extends JFrame {
         int selectedRow = table.getSelectedRow();
         if (selectedRow != -1) {
             ProductEntry selectedEntry = productEntries.get(selectedRow);
-            fillFieldsWithEntry(selectedEntry);
             showEditDialog(selectedEntry);
         } else {
             JOptionPane.showMessageDialog(this, "Please select a product to edit.");
         }
     }
 
-    private void fillFieldsWithEntry(ProductEntry entry) {
-        itemComboBox.setSelectedItem(entry.getItemName());
-        quantityField.setText(String.valueOf(entry.getQuantity()));
-        lengthField.setText(String.valueOf(entry.getLength()));
-        heightField.setText(String.valueOf(entry.getHeight()));
-        surfaceField.setText(String.valueOf(entry.getSurface()));
-        priceField.setText(String.valueOf(entry.getPrice()));
-    }
-
-    private void addEditFields(JPanel panel) {
-        panel.add(new JLabel("الصنف:"));
-        JComboBox<String> editItemComboBox = new JComboBox<>(itemMap.keySet().toArray(new String[0]));
-        panel.add(editItemComboBox);
-
-        panel.add(new JLabel("العدد:"));
-        JTextField editQuantityField = new JTextField(10);
-        panel.add(editQuantityField);
-
-        panel.add(new JLabel("الطول:"));
-        JTextField editLengthField = new JTextField(10);
-        panel.add(editLengthField);
-        JComboBox<String> editLengthUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
-        panel.add(editLengthUnitComboBox);
-
-        panel.add(new JLabel("الارتفاع:"));
-        JTextField editHeightField = new JTextField(10);
-        panel.add(editHeightField);
-        JComboBox<String> editHeightUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
-        panel.add(editHeightUnitComboBox);
-
-        panel.add(new JLabel("المسطح:"));
-        JTextField editSurfaceField = new JTextField(10);
-        editSurfaceField.setEditable(false);
-        panel.add(editSurfaceField);
-
-        panel.add(new JLabel("سعر المتر:"));
-        JTextField editPriceField = new JTextField(10);
-        editPriceField.setEditable(false);
-        panel.add(editPriceField);
-    }
-
     private void showEditDialog(ProductEntry entry) {
         JDialog editDialog = new JDialog(this, "Edit Product", true);
         JPanel editPanel = new JPanel(new GridLayout(0, 2));
-        addEditFields(editPanel);
 
+        JComboBox<String> editItemComboBox = new JComboBox<>(itemMap.keySet().toArray(new String[0]));
+        editItemComboBox.setSelectedItem(entry.getItemName());
+
+        JTextField editQuantityField = new JTextField(String.valueOf(entry.getQuantity()));
+        JTextField editLengthField = new JTextField(String.valueOf(entry.getLength()));
+        JComboBox<String> editLengthUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
+        editLengthUnitComboBox.setSelectedItem(entry.getLength() < 1 ? "سم" : "متر");
+
+        JTextField editHeightField = new JTextField(String.valueOf(entry.getHeight()));
+        JComboBox<String> editHeightUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
+        editHeightUnitComboBox.setSelectedItem(entry.getHeight() < 1 ? "سم" : "متر");
+
+        JTextField editSurfaceField = new JTextField(String.valueOf(entry.getSurface()));
+        editSurfaceField.setEditable(false);
+
+        JTextField editPriceField = new JTextField(String.valueOf(entry.getPrice()));
+        editPriceField.setEditable(false);
+
+        // Add components to edit panel
+        editPanel.add(new JLabel("الصنف:"));
+        editPanel.add(editItemComboBox);
+        editPanel.add(new JLabel("العدد:"));
+        editPanel.add(editQuantityField);
+        editPanel.add(new JLabel("الطول:"));
+        editPanel.add(editLengthField);
+        editPanel.add(new JLabel("الوحدة:"));
+        editPanel.add(editLengthUnitComboBox);
+        editPanel.add(new JLabel("الارتفاع:"));
+        editPanel.add(editHeightField);
+        editPanel.add(new JLabel("الوحدة:"));
+        editPanel.add(editHeightUnitComboBox);
+        editPanel.add(new JLabel("المسطح:"));
+        editPanel.add(editSurfaceField);
+        editPanel.add(new JLabel("سعر المتر:"));
+        editPanel.add(editPriceField);
+
+        // Update price field when item changes
+        editItemComboBox.addActionListener(e -> {
+            String selectedItem = (String) editItemComboBox.getSelectedItem();
+            Item item = itemMap.get(selectedItem);
+            if (item != null) {
+                editPriceField.setText(String.valueOf(item.getPrice()));
+            }
+        });
+
+        // Document listener to update surface field
+        DocumentListener surfaceListener = new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) {
+                updateSurfaceField(editQuantityField, editLengthField, editLengthUnitComboBox, editHeightField, editHeightUnitComboBox, editSurfaceField);
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                updateSurfaceField(editQuantityField, editLengthField, editLengthUnitComboBox, editHeightField, editHeightUnitComboBox, editSurfaceField);
+            }
+
+            public void changedUpdate(DocumentEvent e) {
+                updateSurfaceField(editQuantityField, editLengthField, editLengthUnitComboBox, editHeightField, editHeightUnitComboBox, editSurfaceField);
+            }
+        };
+
+        editQuantityField.getDocument().addDocumentListener(surfaceListener);
+        editLengthField.getDocument().addDocumentListener(surfaceListener);
+        editHeightField.getDocument().addDocumentListener(surfaceListener);
+
+        // Create button panel for save/cancel actions
         JButton saveEditButton = new JButton("Save");
+        JButton cancelButton = new JButton("Cancel");
+
         saveEditButton.addActionListener(e -> {
             try {
-                updateEntryFromFields(entry);
-                editDialog.dispose();
+                // Validate and update entry
+                double quantity = Double.parseDouble(editQuantityField.getText());
+                double length = parseLength(editLengthField.getText(), (String) Objects.requireNonNull(editLengthUnitComboBox.getSelectedItem()));
+                double height = parseHeight(editHeightField.getText(), (String) Objects.requireNonNull(editHeightUnitComboBox.getSelectedItem()));
+                double surface = quantity * length * height;
+                double price = Double.parseDouble(editPriceField.getText());
+
+                // Update entry
+                entry.setQuantity(quantity);
+                entry.setLength(length);
+                entry.setHeight(height);
+                entry.setSurface(surface);
+                entry.setTotal(quantity * price);
+
+                // Update table and close dialog
                 updateTableModel();
+                editDialog.dispose();
             } catch (NumberFormatException ex) {
                 showError(this, "Please enter valid numerical values.");
             }
         });
 
-        JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(e -> editDialog.dispose());
 
-        JPanel editButtonPanel = new JPanel();
-        editButtonPanel.add(saveEditButton);
-        editButtonPanel.add(cancelButton);
+        // Add button panel to dialog
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(saveEditButton);
+        buttonPanel.add(cancelButton);
 
         editDialog.setLayout(new BorderLayout());
         editDialog.add(editPanel, BorderLayout.CENTER);
-        editDialog.add(editButtonPanel, BorderLayout.SOUTH);
+        editDialog.add(buttonPanel, BorderLayout.SOUTH);
         editDialog.pack();
         editDialog.setLocationRelativeTo(this);
         editDialog.setVisible(true);
     }
 
-    private void updateEntryFromFields(ProductEntry entry) {
-        entry.setQuantity(Double.parseDouble(quantityField.getText()));
-        entry.setLength(Double.parseDouble(lengthField.getText()));
-        entry.setHeight(Double.parseDouble(heightField.getText()));
-        entry.setSurface(Double.parseDouble(surfaceField.getText()));
-        entry.setPrice(Double.parseDouble(priceField.getText()));
+    private void updateSurfaceField(JTextField quantityField, JTextField lengthField, JComboBox<String> lengthUnitComboBox,
+                                    JTextField heightField, JComboBox<String> heightUnitComboBox, JTextField surfaceField) {
+        try {
+            double quantity = Double.parseDouble(quantityField.getText());
+            double length = parseLength(lengthField.getText(), (String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem()));
+            double height = parseHeight(heightField.getText(), (String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem()));
+            double surface = quantity * length * height;
+            DecimalFormat decimalFormat = new DecimalFormat("#.##");
+            surfaceField.setText(decimalFormat.format(surface));
+        } catch (NumberFormatException e) {
+            surfaceField.setText("");
+        }
     }
+
 
     private void removeSelectedProduct(JTable table) {
         int selectedRow = table.getSelectedRow();
@@ -445,27 +504,36 @@ public class UI extends JFrame {
     }
 
     private void saveToExcel() {
-        Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Products");
-        createHeaderRow(sheet);
+        // Determine the path to the Documents folder
+        String documentsPath = System.getProperty("user.home") + File.separator + "Documents";
+        File outputFile = new File(documentsPath, "products.xlsx");
 
-        for (int i = 0; i < productEntries.size(); i++) {
-            ProductEntry entry = productEntries.get(i);
-            Row row = sheet.createRow(i + 1);
-            row.createCell(0).setCellValue(entry.getItemName());
-            row.createCell(1).setCellValue(entry.getQuantity());
-            row.createCell(2).setCellValue(entry.getLength());
-            row.createCell(3).setCellValue(entry.getHeight());
-            row.createCell(4).setCellValue(entry.getSurface());
-            row.createCell(5).setCellValue(entry.getPrice());
-            row.createCell(6).setCellValue(entry.getTotal());
-        }
+        // Use try-with-resources to ensure the workbook is closed automatically
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Products");
+            createHeaderRow(sheet);
 
-        try (FileOutputStream fileOut = new FileOutputStream(new File("products.xlsx"))) {
-            workbook.write(fileOut);
-            JOptionPane.showMessageDialog(this, "Data saved to products.xlsx");
+            for (int i = 0; i < productEntries.size(); i++) {
+                ProductEntry entry = productEntries.get(i);
+                Row row = sheet.createRow(i + 1);
+                row.createCell(0).setCellValue(entry.getItemName());
+                row.createCell(1).setCellValue(entry.getQuantity());
+                row.createCell(2).setCellValue(entry.getLength());
+                row.createCell(3).setCellValue(entry.getHeight());
+                row.createCell(4).setCellValue(entry.getSurface());
+                row.createCell(5).setCellValue(entry.getPrice());
+                row.createCell(6).setCellValue(entry.getTotal());
+            }
+
+            // Write the workbook to the output file
+            try (FileOutputStream fileOut = new FileOutputStream(outputFile)) {
+                workbook.write(fileOut);
+                JOptionPane.showMessageDialog(this, "Data saved to " + outputFile.getAbsolutePath());
+            } catch (IOException e) {
+                showError(this, "Error saving data to Excel: " + e.getMessage());
+            }
         } catch (IOException e) {
-            showError(this, "Error saving data to Excel: " + e.getMessage());
+            showError(this, "Error creating workbook: " + e.getMessage());
         }
     }
 
@@ -492,14 +560,8 @@ public class UI extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(new FlatLightLaf());
-                new UI();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+    public static void main(String[] args) throws UnsupportedLookAndFeelException {
+        UIManager.setLookAndFeel(new FlatLightLaf());
+        SwingUtilities.invokeLater(UI::new);
     }
 }

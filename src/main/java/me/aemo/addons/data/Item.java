@@ -1,4 +1,4 @@
-package me.aemo.addons;
+package me.aemo.addons.data;
 
 public class Item {
     public String name;

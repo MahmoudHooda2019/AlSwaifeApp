@@ -1,15 +1,14 @@
-package me.aemo.addons;
+package me.aemo.addons.product;
 
 
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
+import me.aemo.addons.data.Item;
+
+import java.io.IOException;
 
 public class ProductsUtils {
     private static ProductJson productJson;
-    //private static final List<Item> items = new ArrayList<>();
 
-    public ProductsUtils() throws URISyntaxException {
+    public ProductsUtils() throws IOException {
         productJson = new ProductJson();
     }
 

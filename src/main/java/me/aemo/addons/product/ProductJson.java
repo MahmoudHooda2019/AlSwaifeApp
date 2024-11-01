@@ -1,50 +1,56 @@
-package me.aemo.addons;
+package me.aemo.addons.product;
 
+import me.aemo.addons.utils.Constants;
+import me.aemo.addons.data.Item;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.net.URISyntaxException;
-import java.nio.file.*;
 import java.net.URL;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 
 public class ProductJson {
-    private static final List<Item> items = new ArrayList<>();
-    private File jsonFile;
+    private static final List<Item> items = Collections.synchronizedList(new ArrayList<>());
+    private final URL jsonFileUrl;
     private long lastModified;
 
-    public ProductJson() throws URISyntaxException {
-        URL productsUrl = ProductJson.class.getClassLoader().getResource("products.json");
-        if (productsUrl != null) {
-            jsonFile = Paths.get(productsUrl.toURI()).toFile();
-            if (jsonFile.exists()) {
-                lastModified = jsonFile.lastModified();
-                loadItemsFromJson();
-                startFileWatcher();
-            }
+    public ProductJson() throws IOException {
+        jsonFileUrl = ProductJson.class.getClassLoader().getResource(Constants.JSON_FILE_NAME);
+        if (jsonFileUrl != null) {
+            lastModified = jsonFileUrl.openConnection().getLastModified();
+            loadItemsFromJson();
+            startFileWatcher();
+        } else {
+            System.err.println(Constants.JSON_FILE_NAME + " file not found!");
         }
     }
 
     private void loadItemsFromJson() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(jsonFile))) {
+        try (InputStream inputStream = jsonFileUrl.openStream();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             StringBuilder jsonDataBuilder = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
                 jsonDataBuilder.append(line);
             }
             parseJson(jsonDataBuilder.toString());
-        } catch (Exception e) {
-            e.printStackTrace();
+            //JOptionPane.showMessageDialog(null, jsonDataBuilder.toString());
+        } catch (IOException e) {
+            System.err.println("Failed to load items from JSON: " + e.getMessage());
         }
     }
 
+
     private void parseJson(String jsonData) {
-        items.clear(); // Clear existing items before loading
+        items.clear();
         JSONObject jsonObject = new JSONObject(jsonData);
         JSONArray jsonArray = jsonObject.getJSONArray("ProductItems");
 
@@ -61,9 +67,7 @@ public class ProductJson {
     }
 
     public void addItem(String name, double price) {
-        Item newItem = new Item(name, price);
-        items.add(newItem);
-        writeJson();
+        addItem(new Item(name, price));
     }
 
     public void addItem(Item newItem) {
@@ -90,21 +94,27 @@ public class ProductJson {
         }
 
         jsonObject.put("ProductItems", jsonArray);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(jsonFile))) {
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(Paths.get(jsonFileUrl.getPath())), StandardCharsets.UTF_8))) {
             writer.write(jsonObject.toString(4));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("Failed to write items to JSON: " + e.getMessage());
         }
     }
+
 
     private void startFileWatcher() {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
-            if (jsonFile.lastModified() != lastModified) {
-                lastModified = jsonFile.lastModified();
-                loadItemsFromJson(); // Reload items if file has changed
-                System.out.println("Products updated from JSON file.");
+            try {
+                long currentModified = jsonFileUrl.openConnection().getLastModified();
+                if (currentModified != lastModified) {
+                    lastModified = currentModified;
+                    loadItemsFromJson();
+                    System.out.println("Products updated from JSON file.");
+                }
+            } catch (IOException e) {
+                System.err.println("File watcher encountered an error: " + e.getMessage());
             }
-        }, 0, 2, TimeUnit.SECONDS); // Check every 2 seconds
+        }, 0, 2, TimeUnit.SECONDS);
     }
 }
