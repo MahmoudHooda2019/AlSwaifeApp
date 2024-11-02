@@ -6,9 +6,7 @@ import me.aemo.addons.data.Item;
 import me.aemo.addons.data.ProductEntry;
 import me.aemo.addons.enums.FontSize;
 import me.aemo.addons.enums.FontStyle;
-import me.aemo.addons.enums.Languages;
 import me.aemo.addons.enums.Unit;
-import me.aemo.addons.interfaces.LanguagesListener;
 import me.aemo.addons.menubar.ToolBar;
 import me.aemo.addons.product.ProductsUtils;
 import me.aemo.addons.utils.Constants;
@@ -49,7 +47,7 @@ public class UI extends JFrame {
     private final Translator translator;
     private final Utils utils;
     private final String[] unitsList;
-    private Map<JComponent, String> componentMap = new HashMap<>();
+    private final Map<JComponent, String> componentMap = new HashMap<>();
 
     private void updateUIComponents() {
         for (Map.Entry<JComponent, String> entry : componentMap.entrySet()) {
@@ -62,12 +60,15 @@ public class UI extends JFrame {
             ((JButton) component).setText(translator.translate(translationKey));
         } else if (component instanceof JLabel) {
             ((JLabel) component).setText(translator.translate(translationKey));
-        } else if (component instanceof JComboBox) {
+        }
+
+        /*
+        else if (component instanceof JComboBox) {
             JComboBox<String> comboBox = (JComboBox<String>) component;
             String[] items = new String[comboBox.getItemCount()];
 
             for (int i = 0; i < comboBox.getItemCount(); i++) {
-                items[i] = comboBox.getItemAt(i).toString(); // Get original item
+                items[i] = comboBox.getItemAt(i);
             }
 
             // Clear the combo box
@@ -78,6 +79,7 @@ public class UI extends JFrame {
                 comboBox.addItem(translator.translate(item));
             }
         }
+        */
     }
 
 
@@ -94,12 +96,9 @@ public class UI extends JFrame {
 
         ToolBar toolBar = new ToolBar(
                 this,
-                new LanguagesListener() {
-                    @Override
-                    public void onSetLanguage(Languages language) {
-                        translator.setLanguage(language);
-                        updateUIComponents();
-                    }
+                language -> {
+                    translator.setLanguage(language);
+                    updateUIComponents();
                 }
                 ,
                 utils::changeUITheme,
@@ -109,6 +108,13 @@ public class UI extends JFrame {
         );
         toolBar.setBackground(Color.GRAY);
         contentPane.add(toolBar, BorderLayout.NORTH);
+
+        Unit[] units = Unit.values();
+        unitsList = new String[units.length];
+        for (int i = 0; i < units.length; i++){
+            unitsList[i] = translator.translate(units[i].getLabel());
+        }
+
 
         JPanel mainPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -129,11 +135,6 @@ public class UI extends JFrame {
         addComponents(gbc, mainPanel);
         setupListeners();
 
-        Unit[] units = Unit.values();
-        unitsList = new String[units.length];
-        for (int i = 0; i < units.length; i++){
-            unitsList[i] = translator.translate(units[i].getLabel());
-        }
 
         itemComboBox.setSelectedIndex(0);
         contentPane.add(mainPanel, BorderLayout.CENTER);
@@ -184,14 +185,22 @@ public class UI extends JFrame {
         priceField.setEditable(false);
 
 
-
+        assert unitsList != null;
         lengthUnitComboBox = new JComboBox<>(unitsList);
         heightUnitComboBox = new JComboBox<>(unitsList);
     }
 
     private void initializeComboBox() {
         itemMap = new HashMap<>();
-        Item[] items = productsUtils.getAllItems();
+        Item[] items = productsUtils.getAllItems(); // Make sure this method doesn't return null
+
+        if (items == null || items.length == 0) {
+            // Handle the case where there are no items
+            System.out.println("No items available.");
+            itemComboBox = new JComboBox<>(); // Initialize with an empty combo box
+            return; // Exit early
+        }
+
         String[] itemNames = new String[items.length];
 
         for (int i = 0; i < items.length; i++) {
@@ -206,6 +215,7 @@ public class UI extends JFrame {
             priceField.setText(selectedItem != null ? String.valueOf(selectedItem.getPrice()) : "0");
         });
     }
+
 
     private void initializeButtons() {
         saveButton = new JButton(translator.translate("save"));
