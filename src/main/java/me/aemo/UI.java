@@ -4,8 +4,15 @@ package me.aemo;
 import com.formdev.flatlaf.FlatLightLaf;
 import me.aemo.addons.data.Item;
 import me.aemo.addons.data.ProductEntry;
+import me.aemo.addons.enums.FontSize;
+import me.aemo.addons.enums.FontStyle;
+import me.aemo.addons.enums.Languages;
+import me.aemo.addons.enums.Unit;
+import me.aemo.addons.interfaces.LanguagesListener;
 import me.aemo.addons.menubar.ToolBar;
 import me.aemo.addons.product.ProductsUtils;
+import me.aemo.addons.utils.Constants;
+import me.aemo.addons.utils.Translator;
 import me.aemo.addons.utils.Utils;
 
 import org.apache.poi.ss.usermodel.*;
@@ -17,6 +24,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.Color;
+import java.awt.Font;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -26,8 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
-import static me.aemo.addons.utils.Utils.showError;
 
 public class UI extends JFrame {
     private JComboBox<String> itemComboBox;
@@ -40,7 +46,45 @@ public class UI extends JFrame {
     private final List<ProductEntry> productEntries;
     private DefaultTableModel tableModel;
 
+    private final Translator translator;
+    private final Utils utils;
+    private final String[] unitsList;
+    private Map<JComponent, String> componentMap = new HashMap<>();
+
+    private void updateUIComponents() {
+        for (Map.Entry<JComponent, String> entry : componentMap.entrySet()) {
+            updateComponentText(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void updateComponentText(JComponent component, String translationKey) {
+        if (component instanceof JButton) {
+            ((JButton) component).setText(translator.translate(translationKey));
+        } else if (component instanceof JLabel) {
+            ((JLabel) component).setText(translator.translate(translationKey));
+        } else if (component instanceof JComboBox) {
+            JComboBox<String> comboBox = (JComboBox<String>) component;
+            String[] items = new String[comboBox.getItemCount()];
+
+            for (int i = 0; i < comboBox.getItemCount(); i++) {
+                items[i] = comboBox.getItemAt(i).toString(); // Get original item
+            }
+
+            // Clear the combo box
+            comboBox.removeAllItems();
+
+            // Add translated items
+            for (String item : items) {
+                comboBox.addItem(translator.translate(item));
+            }
+        }
+    }
+
+
     public UI() {
+        translator = new Translator();
+        utils = new Utils(this);
+
         setTitle("AlSwaife");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(800, 400);
@@ -50,17 +94,18 @@ public class UI extends JFrame {
 
         ToolBar toolBar = new ToolBar(
                 this,
-                language -> JOptionPane.showMessageDialog(null, "Language set to " + language.name() + "."),
-                theme -> {
-                    try {
-                        Utils.changeUITheme(UI.this, theme);
-                    } catch (UnsupportedLookAndFeelException | ClassNotFoundException | InstantiationException |
-                             IllegalAccessException e) {
-                        showError(this, "Change Theme UI Error: " + e.getMessage());
+                new LanguagesListener() {
+                    @Override
+                    public void onSetLanguage(Languages language) {
+                        translator.setLanguage(language);
+                        updateUIComponents();
                     }
-                },
-                website -> Utils.openHelpWebsite(UI.this, website),
-                () -> Utils.showFontSizeDialog(UI.this)
+                }
+                ,
+                utils::changeUITheme,
+                utils::openHelpWebsite,
+                this::onFontSizeChange,
+                this::onFontStyleChange
         );
         toolBar.setBackground(Color.GRAY);
         contentPane.add(toolBar, BorderLayout.NORTH);
@@ -76,9 +121,7 @@ public class UI extends JFrame {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        // Initialize the table model
-        String[] columnNames = {"الصنف", "العدد", "الطول", "الارتفاع", "المسطح", "سعر المتر", "الاجمالي"};
-        tableModel = new DefaultTableModel(columnNames, 0);
+        tableModel = new DefaultTableModel(Constants.COLUMN_NAMES, 0);
 
         initializeFields();
         initializeComboBox();
@@ -86,26 +129,64 @@ public class UI extends JFrame {
         addComponents(gbc, mainPanel);
         setupListeners();
 
+        Unit[] units = Unit.values();
+        unitsList = new String[units.length];
+        for (int i = 0; i < units.length; i++){
+            unitsList[i] = translator.translate(units[i].getLabel());
+        }
+
         itemComboBox.setSelectedIndex(0);
         contentPane.add(mainPanel, BorderLayout.CENTER);
 
-        Utils.loadIcon(this, "logo.jpg");
+        utils.loadIcon(this, Constants.ICON);
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
+
+    private void onFontSizeChange(FontSize fontSize) {
+        Font currentFont = getFont();
+        Font newFont = new Font(currentFont.getName(), currentFont.getStyle(), fontSize.getSize());
+        updateUIFont(newFont);
+    }
+
+    private void onFontStyleChange(FontStyle fontStyle) {
+        Font currentFont = getFont();
+        Font newFont = new Font(currentFont.getName(), fontStyle.getStyle(), currentFont.getSize());
+        updateUIFont(newFont);
+    }
+
+    // update the font of UI components
+    private void updateUIFont(Font newFont) {
+        for (Component component : getContentPane().getComponents()) {
+            setFontRecursively(component, newFont);
+        }
+    }
+
+    // set the font for components
+    private void setFontRecursively(Component component, Font font) {
+        component.setFont(font);
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                setFontRecursively(child, font);
+            }
+        }
+    }
+
+
     private void initializeFields() {
-        quantityField = Utils.createTextField();
-        lengthField = Utils.createTextField();
-        heightField = Utils.createTextField();
-        surfaceField = Utils.createTextField();
+        quantityField = utils.createTextField();
+        lengthField = utils.createTextField();
+        heightField = utils.createTextField();
+        surfaceField = utils.createTextField();
         surfaceField.setEditable(false);
-        priceField = Utils.createTextField();
+        priceField = utils.createTextField();
         priceField.setEditable(false);
 
-        String[] units = {"متر", "سم"};
-        lengthUnitComboBox = new JComboBox<>(units);
-        heightUnitComboBox = new JComboBox<>(units);
+
+
+        lengthUnitComboBox = new JComboBox<>(unitsList);
+        heightUnitComboBox = new JComboBox<>(unitsList);
     }
 
     private void initializeComboBox() {
@@ -127,13 +208,16 @@ public class UI extends JFrame {
     }
 
     private void initializeButtons() {
-        saveButton = new JButton("Save");
+        saveButton = new JButton(translator.translate("save"));
+        componentMap.put(saveButton, "save");
         saveButton.addActionListener(e -> saveToExcel());
 
-        addButton = new JButton("Add");
+        addButton = new JButton(translator.translate("add"));
+        componentMap.put(addButton, "add");
         addButton.addActionListener(e -> addProduct());
 
-        displayButton = new JButton("Display All");
+        displayButton = new JButton(translator.translate("display_all"));
+        componentMap.put(displayButton, "display_all");
         displayButton.addActionListener(e -> displayAllEntries());
     }
 
@@ -141,7 +225,10 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("الصنف:"), gbc);
+        JLabel productLabel = new JLabel(translator.translate("product") + ":");
+        componentMap.put(productLabel, "product");
+        panel.add(productLabel, gbc);
+
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -150,7 +237,9 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("العدد:"), gbc);
+        JLabel quantityLabel = new JLabel(translator.translate("quantity") + ":");
+        componentMap.put(quantityLabel, "quantity");
+        panel.add(quantityLabel, gbc);
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -159,7 +248,10 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("الطول:"), gbc);
+
+        JLabel lengthLabel = new JLabel(translator.translate("length") + ":");
+        componentMap.put(lengthLabel, "length");
+        panel.add(lengthLabel, gbc);
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -172,7 +264,10 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("الارتفاع:"), gbc);
+
+        JLabel heightLabel = new JLabel(translator.translate("height") + ":");
+        componentMap.put(heightLabel, "height");
+        panel.add(heightLabel, gbc);
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -185,7 +280,9 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("المسطح:"), gbc);
+        JLabel surfaceLabel = new JLabel(translator.translate("surface") + ":");
+        componentMap.put(surfaceLabel, "surface");
+        panel.add(surfaceLabel, gbc);
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -194,7 +291,9 @@ public class UI extends JFrame {
         gbc.gridx = 0;
         gbc.gridy++;
         gbc.anchor = GridBagConstraints.LINE_END;
-        panel.add(new JLabel("سعر المتر:"), gbc);
+        JLabel priceLabel = new JLabel(translator.translate("price") + ":");
+        componentMap.put(priceLabel, "price");
+        panel.add(priceLabel, gbc);
 
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.LINE_START;
@@ -238,8 +337,8 @@ public class UI extends JFrame {
     private void updateSurfaceField() {
         try {
             double quantity = Double.parseDouble(quantityField.getText());
-            double length = parseLength(lengthField.getText(), (String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem()));
-            double height = parseHeight(heightField.getText(), (String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem()));
+            double length = parseLength(lengthField.getText(), Unit.valueOf((String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem())));
+            double height = parseHeight(heightField.getText(), Unit.valueOf((String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem())));
             double surface = quantity * length * height;
             DecimalFormat decimalFormat = new DecimalFormat("#.##");
             surfaceField.setText(decimalFormat.format(surface));
@@ -248,37 +347,37 @@ public class UI extends JFrame {
         }
     }
 
-    private double parseLength(String lengthText, String unit) {
+    private double parseLength(String lengthText, Unit unit) {
         double length = Double.parseDouble(lengthText);
-        return unit.equals("سم") ? length / 100 : length; // Convert cm to m
+        return unit.getLabel().equals(translator.translate("cm_unit")) ? length / 100 : length; // Convert cm to m
     }
 
-    private double parseHeight(String heightText, String unit) {
+    private double parseHeight(String heightText, Unit unit) {
         double height = Double.parseDouble(heightText);
-        return unit.equals("سم") ? height / 100 : height; // Convert cm to m
+        return unit.getLabel().equals(translator.translate("cm_unit")) ? height / 100 : height; // Convert cm to m
     }
 
     private void addProduct() {
         try {
             String selectedName = (String) itemComboBox.getSelectedItem();
             double quantity = Double.parseDouble(quantityField.getText());
-            double length = parseLength(lengthField.getText(), (String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem()));
-            double height = parseHeight(heightField.getText(), (String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem()));
+            double length = parseLength(lengthField.getText(), Unit.valueOf((String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem())));
+            double height = parseHeight(heightField.getText(), Unit.valueOf((String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem())));
             double surface = quantity * length * height;
             double price = Double.parseDouble(priceField.getText());
             double total = quantity * price;
 
             productEntries.add(new ProductEntry(selectedName, quantity, length, height, surface, price, total));
-            JOptionPane.showMessageDialog(this, "Product added successfully!");
+            utils.showDialog(translator.translate("product_added"));
             updateTableModel();
             clearFields();
         } catch (NumberFormatException e) {
-            showError(this, "Please enter valid numerical values.");
+            utils.showError(translator.translate("valid_num"));
         }
     }
 
     private void displayAllEntries() {
-        JDialog dialog = new JDialog(this, "All Products", false); // Non-modal dialog
+        JDialog dialog = new JDialog(this, translator.translate("all_product"), false); // Non-modal dialog
         JTable table = createProductTable();
         JScrollPane scrollPane = new JScrollPane(table);
 
@@ -294,8 +393,7 @@ public class UI extends JFrame {
     }
 
     private JTable createProductTable() {
-        String[] columnNames = {"الصنف", "العدد", "الطول", "الارتفاع", "المسطح", "سعر المتر", "الاجمالي"};
-        Object[][] data = new Object[productEntries.size()][columnNames.length];
+        Object[][] data = new Object[productEntries.size()][Constants.COLUMN_NAMES.length];
 
         for (int i = 0; i < productEntries.size(); i++) {
             ProductEntry entry = productEntries.get(i);
@@ -310,7 +408,7 @@ public class UI extends JFrame {
             };
         }
 
-        tableModel = new DefaultTableModel(data, columnNames) {
+        tableModel = new DefaultTableModel(data, Constants.COLUMN_NAMES) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -321,10 +419,10 @@ public class UI extends JFrame {
     }
 
     private JPanel createButtonPanel(JTable table) {
-        JButton editButton = new JButton("Edit");
-        JButton removeSelectedButton = new JButton("Remove");
-        JButton removeAllButton = new JButton("Remove All");
-        JButton okButton = new JButton("OK");
+        JButton editButton = new JButton(translator.translate("edit"));
+        JButton removeSelectedButton = new JButton(translator.translate("remove"));
+        JButton removeAllButton = new JButton(translator.translate("remove_all"));
+        JButton okButton = new JButton(translator.translate("ok"));
 
         editButton.addActionListener(e -> editSelectedProduct(table));
         removeSelectedButton.addActionListener(e -> removeSelectedProduct(table));
@@ -345,12 +443,12 @@ public class UI extends JFrame {
             ProductEntry selectedEntry = productEntries.get(selectedRow);
             showEditDialog(selectedEntry);
         } else {
-            JOptionPane.showMessageDialog(this, "Please select a product to edit.");
+            utils.showDialog(translator.translate("select_product"));
         }
     }
 
     private void showEditDialog(ProductEntry entry) {
-        JDialog editDialog = new JDialog(this, "Edit Product", true);
+        JDialog editDialog = new JDialog(this, translator.translate("edit_product"), true);
         JPanel editPanel = new JPanel(new GridLayout(0, 2));
 
         JComboBox<String> editItemComboBox = new JComboBox<>(itemMap.keySet().toArray(new String[0]));
@@ -358,12 +456,16 @@ public class UI extends JFrame {
 
         JTextField editQuantityField = new JTextField(String.valueOf(entry.getQuantity()));
         JTextField editLengthField = new JTextField(String.valueOf(entry.getLength()));
-        JComboBox<String> editLengthUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
-        editLengthUnitComboBox.setSelectedItem(entry.getLength() < 1 ? "سم" : "متر");
+
+        String cm = translator.translate("cm_unit");
+        //String m = translator.translate("m_unit");
+
+        JComboBox<String> editLengthUnitComboBox = new JComboBox<>(unitsList);
+        editLengthUnitComboBox.setSelectedItem(entry.getLength() < 1 ? cm : 1);
 
         JTextField editHeightField = new JTextField(String.valueOf(entry.getHeight()));
-        JComboBox<String> editHeightUnitComboBox = new JComboBox<>(new String[]{"متر", "سم"});
-        editHeightUnitComboBox.setSelectedItem(entry.getHeight() < 1 ? "سم" : "متر");
+        JComboBox<String> editHeightUnitComboBox = new JComboBox<>(unitsList);
+        editHeightUnitComboBox.setSelectedItem(entry.getHeight() < 1 ? cm : 1);
 
         JTextField editSurfaceField = new JTextField(String.valueOf(entry.getSurface()));
         editSurfaceField.setEditable(false);
@@ -372,24 +474,23 @@ public class UI extends JFrame {
         editPriceField.setEditable(false);
 
         // Add components to edit panel
-        editPanel.add(new JLabel("الصنف:"));
+        editPanel.add(new JLabel(translator.translate("product") + ":"));
         editPanel.add(editItemComboBox);
-        editPanel.add(new JLabel("العدد:"));
+        editPanel.add(new JLabel(translator.translate("quantity") +":"));
         editPanel.add(editQuantityField);
-        editPanel.add(new JLabel("الطول:"));
+        editPanel.add(new JLabel(translator.translate("length") + ":"));
         editPanel.add(editLengthField);
-        editPanel.add(new JLabel("الوحدة:"));
+        editPanel.add(new JLabel(translator.translate("unit") + ":"));
         editPanel.add(editLengthUnitComboBox);
-        editPanel.add(new JLabel("الارتفاع:"));
+        editPanel.add(new JLabel(translator.translate("height") + ":"));
         editPanel.add(editHeightField);
-        editPanel.add(new JLabel("الوحدة:"));
+        editPanel.add(new JLabel(translator.translate("unit") + ":"));
         editPanel.add(editHeightUnitComboBox);
-        editPanel.add(new JLabel("المسطح:"));
+        editPanel.add(new JLabel(translator.translate("surface") + ":"));
         editPanel.add(editSurfaceField);
-        editPanel.add(new JLabel("سعر المتر:"));
+        editPanel.add(new JLabel(translator.translate("price") + ":"));
         editPanel.add(editPriceField);
 
-        // Update price field when item changes
         editItemComboBox.addActionListener(e -> {
             String selectedItem = (String) editItemComboBox.getSelectedItem();
             Item item = itemMap.get(selectedItem);
@@ -418,15 +519,15 @@ public class UI extends JFrame {
         editHeightField.getDocument().addDocumentListener(surfaceListener);
 
         // Create button panel for save/cancel actions
-        JButton saveEditButton = new JButton("Save");
-        JButton cancelButton = new JButton("Cancel");
+        JButton saveEditButton = new JButton(translator.translate("save"));
+        JButton cancelButton = new JButton(translator.translate("cancel"));
 
         saveEditButton.addActionListener(e -> {
             try {
                 // Validate and update entry
                 double quantity = Double.parseDouble(editQuantityField.getText());
-                double length = parseLength(editLengthField.getText(), (String) Objects.requireNonNull(editLengthUnitComboBox.getSelectedItem()));
-                double height = parseHeight(editHeightField.getText(), (String) Objects.requireNonNull(editHeightUnitComboBox.getSelectedItem()));
+                double length = parseLength(editLengthField.getText(), Unit.valueOf((String) Objects.requireNonNull(editLengthUnitComboBox.getSelectedItem())));
+                double height = parseHeight(editHeightField.getText(), Unit.valueOf((String) Objects.requireNonNull(editHeightUnitComboBox.getSelectedItem())));
                 double surface = quantity * length * height;
                 double price = Double.parseDouble(editPriceField.getText());
 
@@ -441,7 +542,7 @@ public class UI extends JFrame {
                 updateTableModel();
                 editDialog.dispose();
             } catch (NumberFormatException ex) {
-                showError(this, "Please enter valid numerical values.");
+                utils.showError(translator.translate("valid_num"));
             }
         });
 
@@ -464,8 +565,8 @@ public class UI extends JFrame {
                                     JTextField heightField, JComboBox<String> heightUnitComboBox, JTextField surfaceField) {
         try {
             double quantity = Double.parseDouble(quantityField.getText());
-            double length = parseLength(lengthField.getText(), (String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem()));
-            double height = parseHeight(heightField.getText(), (String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem()));
+            double length = parseLength(lengthField.getText(), Unit.valueOf((String) Objects.requireNonNull(lengthUnitComboBox.getSelectedItem())));
+            double height = parseHeight(heightField.getText(), Unit.valueOf((String) Objects.requireNonNull(heightUnitComboBox.getSelectedItem())));
             double surface = quantity * length * height;
             DecimalFormat decimalFormat = new DecimalFormat("#.##");
             surfaceField.setText(decimalFormat.format(surface));
@@ -481,7 +582,7 @@ public class UI extends JFrame {
             productEntries.remove(selectedRow);
             updateTableModel();
         } else {
-            JOptionPane.showMessageDialog(this, "Please select a product to remove.");
+            utils.showDialog("Please select a product to remove.");
         }
     }
 
@@ -508,7 +609,7 @@ public class UI extends JFrame {
         String documentsPath = System.getProperty("user.home") + File.separator + "Documents";
         File outputFile = new File(documentsPath, "products.xlsx");
 
-        // Use try-with-resources to ensure the workbook is closed automatically
+
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Products");
             createHeaderRow(sheet);
@@ -516,32 +617,60 @@ public class UI extends JFrame {
             for (int i = 0; i < productEntries.size(); i++) {
                 ProductEntry entry = productEntries.get(i);
                 Row row = sheet.createRow(i + 1);
-                row.createCell(0).setCellValue(entry.getItemName());
-                row.createCell(1).setCellValue(entry.getQuantity());
-                row.createCell(2).setCellValue(entry.getLength());
-                row.createCell(3).setCellValue(entry.getHeight());
-                row.createCell(4).setCellValue(entry.getSurface());
-                row.createCell(5).setCellValue(entry.getPrice());
-                row.createCell(6).setCellValue(entry.getTotal());
+                row.createCell(Constants.ITEM_COLUMN).setCellValue(entry.getItemName());
+                row.createCell(Constants.QUANTITY_COLUMN).setCellValue(entry.getQuantity());
+                row.createCell(Constants.LENGTH_COLUMN).setCellValue(entry.getLength());
+                row.createCell(Constants.HEIGHT_COLUMN).setCellValue(entry.getHeight());
+                row.createCell(Constants.SURFACE_COLUMN).setCellValue(entry.getSurface());
+                row.createCell(Constants.PRICE_COLUMN).setCellValue(entry.getPrice());
+                row.createCell(Constants.TOTAL_COLUMN).setCellValue(entry.getTotal());
             }
 
-            // Write the workbook to the output file
+
             try (FileOutputStream fileOut = new FileOutputStream(outputFile)) {
                 workbook.write(fileOut);
-                JOptionPane.showMessageDialog(this, "Data saved to " + outputFile.getAbsolutePath());
+                showSaveDialog(outputFile);
             } catch (IOException e) {
-                showError(this, "Error saving data to Excel: " + e.getMessage());
+                utils.showError("Error saving data to Excel: " + e.getMessage());
             }
         } catch (IOException e) {
-            showError(this, "Error creating workbook: " + e.getMessage());
+            utils.showError("Error creating workbook: " + e.getMessage());
+        }
+    }
+
+    private void showSaveDialog(File outputFile) throws IOException {
+        Object[] options = {
+                translator.translate("open_file"),
+                translator.translate("open_location"),
+                translator.translate("close")};
+
+        int choice = JOptionPane.showOptionDialog(
+                null,
+                translator.translate("saved_to") + outputFile.getAbsolutePath(),
+                translator.translate("file_saved"),
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                options,
+                options[2]
+        );
+
+        switch (choice) {
+            case 0: // Open File
+                utils.open(outputFile);
+                break;
+            case 1: // Open Location
+                utils.open(outputFile);
+                break;
+            case 2: // Close
+                break;
         }
     }
 
     private void createHeaderRow(Sheet sheet) {
         Row headerRow = sheet.createRow(0);
-        String[] columnHeaders = {"الصنف", "العدد", "الطول", "الارتفاع", "المسطح", "سعر المتر", "الاجمالي"};
-        for (int i = 0; i < columnHeaders.length; i++) {
-            headerRow.createCell(i).setCellValue(columnHeaders[i]);
+        for (int i = 0; i < Constants.COLUMN_NAMES.length; i++) {
+            headerRow.createCell(i).setCellValue(Constants.COLUMN_NAMES[i]);
         }
     }
 

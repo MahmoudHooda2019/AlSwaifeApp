@@ -1,9 +1,6 @@
 package me.aemo.addons.menubar;
 
-import me.aemo.addons.interfaces.FontListener;
-import me.aemo.addons.interfaces.HelpListener;
-import me.aemo.addons.interfaces.LanguagesListener;
-import me.aemo.addons.interfaces.ThemesListener;
+import me.aemo.addons.interfaces.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,9 +11,10 @@ public class ToolBar extends JToolBar {
                    LanguagesListener languagesListener,
                    ThemesListener themesListener,
                    HelpListener helpListener,
-                   FontListener fontListener
+                   FontSizeListener fontSizeListener,
+                   FontStyleListener fontStyleListener
     ) {
-        JMenuBar menuBar = createMenuBar(languagesListener, themesListener, helpListener, fontListener);
+        JMenuBar menuBar = createMenuBar(languagesListener, themesListener, helpListener, fontSizeListener, fontStyleListener);
         frame.setJMenuBar(menuBar);
         frame.add(this, BorderLayout.NORTH);
     }
@@ -25,11 +23,12 @@ public class ToolBar extends JToolBar {
             LanguagesListener languagesListener,
             ThemesListener themesListener,
             HelpListener helpListener,
-            FontListener fontListener) {
+            FontSizeListener fontSizeListener,
+            FontStyleListener fontStyleListener) {
         JMenuBar menuBar = new JMenuBar();
 
         // Add settings menu
-        SettingsMenu settingsMenu = new SettingsMenu(languagesListener, themesListener, fontListener);
+        SettingsMenu settingsMenu = new SettingsMenu(languagesListener, themesListener, fontSizeListener, fontStyleListener);
         menuBar.add(settingsMenu);
 
         // Add help menu
