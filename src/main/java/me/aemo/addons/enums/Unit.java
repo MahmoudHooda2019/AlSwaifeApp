@@ -1,8 +1,8 @@
 package me.aemo.addons.enums;
 
 public enum Unit {
-    METERS("m"), // m
-    CENTIMETERS("cm"); //cm
+    METERS("سم"), // m
+    CENTIMETERS("متر"); // cm
 
     private final String label;
 
@@ -12,5 +12,14 @@ public enum Unit {
 
     public String getLabel() {
         return label;
+    }
+
+    public static Unit fromLabel(String label) {
+        for (Unit unit : values()) {
+            if (unit.getLabel().equals(label)) {
+                return unit;
+            }
+        }
+        throw new IllegalArgumentException("No unit with label " + label);
     }
 }

@@ -22,6 +22,21 @@ public class Utils {
         this.jframe = jframe;
     }
 
+    public void updateUIFont(Font newFont) {
+        for (Component component : jframe.getContentPane().getComponents()) {
+            setFontRecursively(component, newFont);
+        }
+    }
+
+    private void setFontRecursively(Component component, Font font) {
+        component.setFont(font);
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                setFontRecursively(child, font);
+            }
+        }
+    }
+
     public void open(File file) throws IOException {
         if (file.isDirectory()){
             openFolder(file);
@@ -38,15 +53,14 @@ public class Utils {
     }
 
 
-
+    public void showInfo(String message) {
+        JOptionPane.showMessageDialog(null, message, "Information", JOptionPane.INFORMATION_MESSAGE);
+    }
 
     public void showDialog(String msg){
-
         JOptionPane.showMessageDialog(jframe, msg);
     }
     public void changeUITheme(Themes theme) {
-        Font currentFont = jframe.getFont();
-
         switch (theme) {
             case Default -> changeLook(UIManager.getCrossPlatformLookAndFeelClassName());
             case FlatLight -> changeLook(new FlatLightLaf());
@@ -56,17 +70,6 @@ public class Utils {
         }
 
         updateUI();
-
-        // Reapply the font
-        setFontRecursively(jframe.getContentPane(), currentFont);
-    }
-    private void setFontRecursively(Component component, Font font) {
-        component.setFont(font);
-        if (component instanceof Container) {
-            for (Component child : ((Container) component).getComponents()) {
-                setFontRecursively(child, font);
-            }
-        }
     }
 
 
@@ -78,22 +81,17 @@ public class Utils {
                 } else if (look instanceof LookAndFeel) {
                     UIManager.setLookAndFeel((LookAndFeel) look);
                 } else {
-                    showError("Unsupported look type: " + look.getClass().getName());
+                    showError("نوع المظهر غير المدعوم: " + look.getClass().getName());
                 }
             } catch (UnsupportedLookAndFeelException | ClassNotFoundException |
                      InstantiationException | IllegalAccessException e) {
-                showError("Failed to set look and feel, Error: " + e.getMessage());
+                showError("فشل في تعيين المظهر والشكل، خطأ: " + e.getMessage());
             }
         });
     }
 
     public void updateUI(){
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                SwingUtilities.updateComponentTreeUI(jframe);
-            }
-        });
+        SwingUtilities.invokeLater(() -> SwingUtilities.updateComponentTreeUI(jframe));
     }
 
 
@@ -108,7 +106,7 @@ public class Utils {
         try {
             Desktop.getDesktop().browse(new URI(url));
         } catch (IOException | URISyntaxException e) {
-            showError("Failed to open link: " + e.getMessage());
+            showError("فشل في فتح الرابط: " + e.getMessage());
         }
     }
 
@@ -123,12 +121,12 @@ public class Utils {
 
     public JTextField createTextField() {
         JTextField textField = new JTextField();
-        textField.setPreferredSize(new Dimension(150, 30));
+        textField.setPreferredSize(new Dimension(150, 35));
         return textField;
     }
 
     public void showError(String message) {
-        JOptionPane.showMessageDialog(jframe, message, "Input Error", JOptionPane.ERROR_MESSAGE);
+        JOptionPane.showMessageDialog(jframe, message, "رسالة خطأ", JOptionPane.ERROR_MESSAGE);
     }
 
 }

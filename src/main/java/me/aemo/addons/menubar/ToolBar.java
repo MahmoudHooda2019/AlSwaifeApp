@@ -8,27 +8,32 @@ import java.awt.*;
 public class ToolBar extends JToolBar {
 
     public ToolBar(JFrame frame,
-                   LanguagesListener languagesListener,
+                   FileChooseListener fileChooseListener,
                    ThemesListener themesListener,
                    HelpListener helpListener,
                    FontSizeListener fontSizeListener,
                    FontStyleListener fontStyleListener
     ) {
-        JMenuBar menuBar = createMenuBar(languagesListener, themesListener, helpListener, fontSizeListener, fontStyleListener);
+        JMenuBar menuBar = createMenuBar(fileChooseListener, themesListener, helpListener, fontSizeListener, fontStyleListener);
         frame.setJMenuBar(menuBar);
         frame.add(this, BorderLayout.NORTH);
     }
 
     private JMenuBar createMenuBar(
-            LanguagesListener languagesListener,
+            FileChooseListener fileChooseListener,
             ThemesListener themesListener,
             HelpListener helpListener,
             FontSizeListener fontSizeListener,
             FontStyleListener fontStyleListener) {
         JMenuBar menuBar = new JMenuBar();
 
+        // Add File Menu
+        FileMenu fileMenu = new FileMenu();
+        fileMenu.setListener(fileChooseListener);
+        menuBar.add(fileMenu);
+
         // Add settings menu
-        SettingsMenu settingsMenu = new SettingsMenu(languagesListener, themesListener, fontSizeListener, fontStyleListener);
+        SettingsMenu settingsMenu = new SettingsMenu(themesListener, fontSizeListener, fontStyleListener);
         menuBar.add(settingsMenu);
 
         // Add help menu

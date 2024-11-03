@@ -20,7 +20,7 @@ public class ProductEntry {
         this.total = total;
     }
 
-    public void setItemName(){
+    public void setItemName(String itemName){
         this.itemName = itemName;
     }
     public String getItemName() { return itemName; }

@@ -1,8 +1,10 @@
 package me.aemo.addons.utils;
 
-import java.awt.*;
 
 public class Constants {
+    public static final int SPACING = 10;
+    public static final int MAX_FONT_SIZE = 41;
+    public static final int MIN_FONT_SIZE = 12;
     public static final String[] COLUMN_NAMES = {
             "الصنف", "العدد", "الطول", "الارتفاع", "المسطح", "سعر المتر", "الاجمالي"
     };
@@ -23,28 +25,23 @@ public class Constants {
     public static final String JSON_FILE_NAME = "products.json";
 
     // Settings Menu
-    public static final String MENU_SETTINGS = "Settings";
-    public static final String MENU_LANGUAGE = "Language";
-    public static final String MENU_THEMES = "Themes";
-    public static final String MENU_FONT_SIZE = "Font Size";
-    public static final String MENU_FONT_STYLE = "Font Style";
+    public static final String MENU_SETTINGS = "الإعدادات";
+    public static final String MENU_THEMES = "المظهر";
+    public static final String MENU_FONT_SIZE = "حجم الخط";
+    public static final String MENU_FONT_STYLE = "شكل الخط";
 
     // Help Menu
-    public static final String MENU_HELP = "Help";
-    public static final String MENU_ITEM_GITHUB = "Our GitHub";
-    public static final String MENU_ITEM_FACEBOOK = "Our Facebook";
+    public static final String MENU_HELP = "مساعده";
+    public static final String MENU_ITEM_GITHUB = "جيت هب";
+    public static final String MENU_ITEM_FACEBOOK = "فيسبوك";
 
     // Help Websites
     public static final String GITHUB_URL = "https://github.com/MahmoudHooda2019/";
     public static final String FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100012640485216";
 
-    // Font Size
-    public static final int FONT_SIZE_SMALL = 8;
-    public static final int FONT_SIZE_MEDIUM = 12;
-    public static final int FONT_SIZE_LARGE = 16;
+    // File Menu
+    public static final String MENU_FILE = "ملف";
+    public static final String MENU_ITEM_EXPORT = "استخراج";
+    public static final String MENU_ITEM_IMPORT = "استيراد";
 
-    // Font Style
-    public static final int FONT_STYLE_PLAIN = Font.PLAIN;
-    public static final int FONT_STYLE_BOLD = Font.BOLD;
-    public static final int FONT_STYLE_ITALIC = Font.ITALIC;
 }
